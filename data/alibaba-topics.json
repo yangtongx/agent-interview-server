@@ -1,0 +1,209 @@
+[
+  {
+    "id": "java-agent",
+    "index": 0,
+    "bank": "alibaba",
+    "name": "Java 转 Agent",
+    "english": "Java → Agent",
+    "summary": "从确定性后端切到不确定生成：双栈边界、测试与 Mock、异步 MQ、可回退生成和量化复盘。",
+    "interviewerNote": "这是给 Java 转岗准备的专题。既要守住事务、幂等、鉴权，也要能处理 Agent 长任务和消息一致性。"
+  },
+  {
+    "id": "fundamentals",
+    "index": 1,
+    "bank": "alibaba",
+    "name": "Agent 基础概念",
+    "english": "Fundamentals",
+    "summary": "定义、边界、自主性分级；对照 Java 服务讲清控制权和副作用。",
+    "interviewerNote": "候选人是 Java 转过来的。这轮看他会不会把 Agent 从 Chatbot / 工作流里拆出来，以及会不会把控制权、副作用讲清楚。答成「Controller 调 LLM」直接挂。"
+  },
+  {
+    "id": "planning",
+    "index": 2,
+    "bank": "alibaba",
+    "name": "规划与推理",
+    "english": "Planning & Reasoning",
+    "summary": "CoT、ReAct、Plan-and-Execute、重规划，以及计划过时问题。",
+    "interviewerNote": "不要背论文名。用 Java 状态机 / 定时任务对比：哪些计划必须钉死，哪些允许模型重规划，重规划时怎么避免写操作双花。"
+  },
+  {
+    "id": "tools",
+    "index": 3,
+    "bank": "alibaba",
+    "name": "工具调用",
+    "english": "Tool Use",
+    "summary": "Schema、并行调用、幻觉工具、大规模工具路由、写操作治理。",
+    "interviewerNote": "工具网关按 API 网关来问：schema、鉴权、超时、幂等。模型可以选工具，不能造工具，不能绕过 Java 执行器改金额。"
+  },
+  {
+    "id": "memory",
+    "index": 4,
+    "bank": "alibaba",
+    "name": "记忆与上下文",
+    "english": "Memory",
+    "summary": "工作记忆、压缩、长期记忆写入/遗忘，以及记忆投毒。",
+    "interviewerNote": "记忆不是乱塞向量库。按会话隔离、TTL、纠正错记忆来问。写长期记忆等于写库，要有权限和审计。"
+  },
+  {
+    "id": "multi-agent",
+    "index": 5,
+    "bank": "alibaba",
+    "name": "多智能体协作",
+    "english": "Multi-Agent",
+    "summary": "Supervisor、Swarm、状态传递、辩论架构、拆分边界。",
+    "interviewerNote": "先问为什么不做成单服务加工具。拆分用微服务的标准：重复执行、死锁、状态传递怎么收。"
+  },
+  {
+    "id": "rag",
+    "index": 6,
+    "bank": "alibaba",
+    "name": "RAG 与知识增强",
+    "english": "Agentic RAG",
+    "summary": "检索决策、query 改写、向量索引、引用、噪声伤害和结构化查询路由。",
+    "interviewerNote": "不仅要会 RAG 流程，还要能用召回、延迟和内存解释 IVF/HNSW 等索引选择。"
+  },
+  {
+    "id": "prompt",
+    "index": 7,
+    "bank": "alibaba",
+    "name": "Prompt 与指令设计",
+    "english": "Prompting",
+    "summary": "系统提示分层、工具 few-shot、指令优先级、规则外置和回归退化治理。",
+    "interviewerNote": "Prompt 是规格书。调优必须有回归集和可归因 diff，不能修一类坏一类后继续打补丁。"
+  },
+  {
+    "id": "orchestration",
+    "index": 8,
+    "bank": "alibaba",
+    "name": "工作流编排",
+    "english": "Orchestration",
+    "summary": "DAG 与循环图、HITL、Checkpoint、确定性子流程回收。",
+    "interviewerNote": "按工作流引擎问 checkpoint、HITL、恢复。能收成确定性子流程的，不要每次让模型再选。"
+  },
+  {
+    "id": "evaluation",
+    "index": 9,
+    "bank": "alibaba",
+    "name": "评估与评测",
+    "english": "Evaluation",
+    "summary": "轨迹评估、LLM-as-judge、工具指标、黄金集、Bad Case 回流与成本纪律。",
+    "interviewerNote": "要听黄金集、对账、越权用例和线上问题怎么闭环，不要只说「像不像人」。"
+  },
+  {
+    "id": "safety",
+    "index": 10,
+    "bank": "alibaba",
+    "name": "安全、权限与对齐",
+    "english": "Safety",
+    "summary": "间接注入、沙箱、数据外泄、资金类越权、护栏分层。",
+    "interviewerNote": "鉴权仍走网关和 JWT，不走 Prompt。间接注入按不可信输入来防。资金类越权是一票否决。"
+  },
+  {
+    "id": "observability",
+    "index": 11,
+    "bank": "alibaba",
+    "name": "观测性与调试",
+    "english": "Observability",
+    "summary": "Trace span、失败回放、成本看板、空转诊断、日志脱敏。",
+    "interviewerNote": "要能按 run_id / trace_id 把 Java 账单和工具入参对上。只看聊天记录修不了事故。"
+  },
+  {
+    "id": "performance",
+    "index": 12,
+    "bank": "alibaba",
+    "name": "性能、成本与延迟",
+    "english": "Perf & Cost",
+    "summary": "模型选型与一致性、推理吞吐、模型路由、缓存、体感延迟和大促降级。",
+    "interviewerNote": "既要会选模型，也要说清 KV Cache、Continuous Batching 与线上吞吐；没部署过不要编数字。"
+  },
+  {
+    "id": "errors",
+    "index": 13,
+    "bank": "alibaba",
+    "name": "错误处理与自我纠错",
+    "english": "Reliability",
+    "summary": "超时重试、步数熔断、错误反馈、降级路径、级联失败。",
+    "interviewerNote": "重试必须幂等。模型换参再试等于新请求。没有步数熔断就是烧钱死循环。"
+  },
+  {
+    "id": "protocols",
+    "index": 14,
+    "bank": "alibaba",
+    "name": "协议与互操作",
+    "english": "Protocols",
+    "summary": "Rules、Skills、Tools、MCP、A2A、RPC 工具化与版本兼容。",
+    "interviewerNote": "重点听决策权和权限边界：Skill 是按需方法包，MCP 是协议，都不能替代工具网关。"
+  },
+  {
+    "id": "multimodal",
+    "index": 15,
+    "bank": "alibaba",
+    "name": "多模态与 Computer Use",
+    "english": "Computer Use",
+    "summary": "感知-行动闭环、grounding 漂移、DOM 优先、桌面权限。",
+    "interviewerNote": "能走 API 就不要截图点按钮。像素操作没有事务，权限仍在网关。"
+  },
+  {
+    "id": "production",
+    "index": 16,
+    "bank": "alibaba",
+    "name": "生产工程与稳定性",
+    "english": "Production",
+    "summary": "幂等、异步队列、灰度热更新、SLA、多租户隔离。",
+    "interviewerNote": "灰度、回滚、限流、对账必须在。策略和工具开关要能 1 分钟关掉写入。"
+  },
+  {
+    "id": "alibaba-scenarios",
+    "index": 17,
+    "bank": "alibaba",
+    "name": "阿里业务场景落地",
+    "english": "Business Cases",
+    "summary": "客服、导购、商家助手、供应链异常、内部代码/运维 Agent。",
+    "interviewerNote": "场景要带库存、价格权、人工升级。空谈赋能、不划 Java 权威边界，直接挂。"
+  },
+  {
+    "id": "architecture",
+    "index": 18,
+    "bank": "alibaba",
+    "name": "Agent 架构模式",
+    "english": "Architecture",
+    "summary": "Harness、Router-Worker、Planner-Executor-Verifier、事件驱动与嵌入式 Agent。",
+    "interviewerNote": "要分清模型、框架、Harness 和业务 Agent。只会说「用 LangGraph」不等于有生产运行时。"
+  },
+  {
+    "id": "training",
+    "index": 19,
+    "bank": "alibaba",
+    "name": "数据、训练与微调",
+    "english": "Training",
+    "summary": "工具 SFT、用户反馈转样本、轨迹标注 SOP、过程奖励、合成偏差和在线探索。",
+    "interviewerNote": "先做根因归类和标注治理，再谈微调。用户点踩不是天然负样本，全量日志直接 SFT 会学回脏数据。"
+  },
+  {
+    "id": "system-design",
+    "index": 20,
+    "bank": "alibaba",
+    "name": "系统设计与综合",
+    "english": "System Design",
+    "summary": "客服、企业知识、Agent 中台、评测平台、大促降级体系。",
+    "interviewerNote": "按系统设计问：目标、流量、数据权威、权限、评测、降级。缺一块就追问。"
+  },
+  {
+    "id": "knowledge-engineering",
+    "index": 21,
+    "bank": "alibaba",
+    "name": "企业知识库工程",
+    "english": "Knowledge Engineering",
+    "summary": "从复杂文档入库、解析与分块，到混合检索、召回评测、版本和权限治理。",
+    "interviewerNote": "沿一条真实文档链路深挖。必须讲数据结构、失败样本和指标，不能只画 RAG 四个方块。"
+  },
+  {
+    "id": "ticket-system",
+    "index": 22,
+    "bank": "alibaba",
+    "name": "智能工单系统",
+    "english": "AI Ticketing",
+    "summary": "客服对话提单、补槽、分派、流转、去重、SLA、人机处理与知识闭环。",
+    "interviewerNote": "按工单完整生命周期问实现。Agent 可以理解和建议，工单状态与责任归属必须由确定性系统维护。"
+  }
+]

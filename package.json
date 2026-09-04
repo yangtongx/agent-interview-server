@@ -1,0 +1,18 @@
+{
+  "name": "ali-agent-interview-server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dump-bank": "npx tsx scripts/dump-public-bank.ts",
+    "init-db": "python -m server.init_db",
+    "seed": "python -m server.seed",
+    "start": "python -m server",
+    "dev": "python -m server --reload",
+    "test": "python -m unittest server.test_logic server.test_api"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.20.5",
+    "typescript": "^5"
+  }
+}

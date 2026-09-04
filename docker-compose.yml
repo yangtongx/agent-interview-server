@@ -1,0 +1,18 @@
+services:
+  api:
+    build: .
+    image: ali-agent-interview-server:latest
+    container_name: ali-agent-interview-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${PUBLISH_PORT:-80}:43180"
+    environment:
+      PORT: "43180"
+      HOST: "0.0.0.0"
+      WEB_ROOT: /app/out
+      PG_URI: ${PG_URI}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen-plus}

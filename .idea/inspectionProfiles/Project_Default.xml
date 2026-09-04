@@ -1,0 +1,88 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyCompatibilityInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Project Files" level="WARNING" enabled="true">
+        <option name="ourVersions">
+          <value>
+            <list size="2">
+              <item index="0" class="java.lang.String" itemvalue="2.7" />
+              <item index="1" class="java.lang.String" itemvalue="3.14" />
+            </list>
+          </value>
+        </option>
+      </scope>
+      <option name="ourVersions">
+        <value>
+          <list size="2">
+            <item index="0" class="java.lang.String" itemvalue="2.7" />
+            <item index="1" class="java.lang.String" itemvalue="3.14" />
+          </list>
+        </value>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="annotated-types" />
+          <option value="anyio" />
+          <option value="attrs" />
+          <option value="cachetools" />
+          <option value="certifi" />
+          <option value="cffi" />
+          <option value="charset-normalizer" />
+          <option value="click" />
+          <option value="colorama" />
+          <option value="cryptography" />
+          <option value="distro" />
+          <option value="greenlet" />
+          <option value="h11" />
+          <option value="httpcore" />
+          <option value="httpx" />
+          <option value="httpx-sse" />
+          <option value="idna" />
+          <option value="jiter" />
+          <option value="jsonpatch" />
+          <option value="jsonpointer" />
+          <option value="jsonschema" />
+          <option value="jsonschema-specifications" />
+          <option value="langchain" />
+          <option value="langchain-mcp-adapters" />
+          <option value="mcp" />
+          <option value="openai" />
+          <option value="packaging" />
+          <option value="pycparser" />
+          <option value="pydantic-settings" />
+          <option value="python-dotenv" />
+          <option value="python-multipart" />
+          <option value="referencing" />
+          <option value="regex" />
+          <option value="requests" />
+          <option value="requests-toolbelt" />
+          <option value="rpds-py" />
+          <option value="six" />
+          <option value="sniffio" />
+          <option value="sse-starlette" />
+          <option value="tenacity" />
+          <option value="tqdm" />
+          <option value="urllib3" />
+          <option value="zhipuai" />
+          <option value="zstandard" />
+          <option value="nacos-sdk-python" />
+          <option value="dashscope" />
+          <option value="dashvector" />
+          <option value="gunicorn" />
+          <option value="dill" />
+          <option value="redis" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="langgraph.store.*" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>

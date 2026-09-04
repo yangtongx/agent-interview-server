@@ -1,0 +1,7 @@
+{
+  "name": "杨会东",
+  "from": "Java 后端",
+  "to": "Agent 应用开发",
+  "oneLiner": "按 Java 转 Agent 来练：把不确定的生成收进可运营的系统，而不是把后端改成聊天机器人。",
+  "interviewerFrame": "候选人是 Java 转过来的。要听他怎么用事务、幂等、鉴权、超时这些老本领，而不是背论文，更不要把 Agent 答成 Controller 里调一次 LLM。"
+}

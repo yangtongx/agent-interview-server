@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>题库中台</title>
+  <style>
+    :root {
+      --paper: #f6f0e6;
+      --card: #fffdf8;
+      --ink: #1c1410;
+      --muted: #7a6f66;
+      --accent: #e24a16;
+      --line: #e8dfd4;
+      --emerald: #0f7a5a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    header {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--card);
+    }
+    h1 { font-size: 18px; margin: 0; }
+    main { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+    @media (max-width: 960px) { main { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 4px; }
+    input, select, textarea, button {
+      font: inherit;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      background: #fff;
+    }
+    textarea { width: 100%; min-height: 88px; }
+    button { background: var(--accent); color: #fff; border: 0; cursor: pointer; }
+    button.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .muted { color: var(--muted); }
+    .ok { color: var(--emerald); }
+    .err { color: #c43c2c; }
+    .chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #fbe4d6; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>题库中台</h1>
+    <input id="token" type="password" placeholder="ADMIN_TOKEN" style="min-width:220px" />
+    <button type="button" onclick="connect()">进入</button>
+    <span id="stats" class="muted"></span>
+  </header>
+  <main>
+    <section class="card">
+      <div class="row">
+        <input id="q" placeholder="搜标题 / 题干 / id" />
+        <select id="status">
+          <option value="">全部状态</option>
+          <option value="published">published</option>
+          <option value="draft">draft</option>
+          <option value="retired">retired</option>
+        </select>
+        <select id="topicId"><option value="">全部主题</option></select>
+        <button type="button" class="ghost" onclick="loadList()">查询</button>
+      </div>
+      <p id="pager" class="muted"></p>
+      <div style="overflow:auto; max-height: 70vh">
+        <table>
+          <thead><tr><th>ID</th><th>题</th><th>状态</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="card">
+      <h2 id="editTitle" style="font-size:16px;margin:0 0 8px">选一道题编辑</h2>
+      <p id="msg" class="muted"></p>
+      <div id="editor" class="muted">还没选题目。</div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:16px 0" />
+      <h2 style="font-size:16px;margin:0 0 8px">发新版本</h2>
+      <label>版本号</label>
+      <input id="version" placeholder="1.0.1" />
+      <label>摘要</label>
+      <input id="summary" placeholder="修了哪些题" />
+      <div class="row" style="margin-top:10px">
+        <button type="button" onclick="publish()">发布当前版本</button>
+      </div>
+      <div id="releases" class="muted" style="margin-top:10px"></div>
+    </section>
+  </main>
+  <script>
+    const TOKEN_KEY = "ali-admin-token";
+    let page = 1;
+    let current = null;
+
+    function token() {
+      return document.getElementById("token").value.trim();
+    }
+    function headers(json) {
+      const h = { "X-Admin-Token": token() };
+      if (json) h["Content-Type"] = "application/json";
+      return h;
+    }
+    async function api(path, opt) {
+      const res = await fetch(path, opt);
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || ("HTTP " + res.status));
+      return data;
+    }
+    function setMsg(text, ok) {
+      const el = document.getElementById("msg");
+      el.textContent = text;
+      el.className = ok ? "ok" : "err";
+    }
+    function clearNode(el) {
+      while (el.firstChild) el.removeChild(el.firstChild);
+    }
+    function addOption(sel, value, label) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = label;
+      sel.appendChild(opt);
+    }
+    function field(parent, tag, id, label, value, extra) {
+      const lab = document.createElement("label");
+      lab.textContent = label;
+      parent.appendChild(lab);
+      const node = document.createElement(tag);
+      node.id = id;
+      if (tag === "textarea" || tag === "input") node.value = value || "";
+      if (extra) Object.assign(node.style, extra);
+      parent.appendChild(node);
+      return node;
+    }
+    async function connect() {
+      sessionStorage.setItem(TOKEN_KEY, token());
+      try {
+        const stats = await api("/api/admin/stats", { headers: headers() });
+        document.getElementById("stats").textContent =
+          "题目 " + stats.questions + " · 已发布 " + stats.published + " · 用户 " + stats.users +
+          (stats.release ? " · 当前 " + stats.release.version : "");
+        const topics = await api("/api/admin/topics", { headers: headers() });
+        const sel = document.getElementById("topicId");
+        clearNode(sel);
+        addOption(sel, "", "全部主题");
+        (topics.items || []).forEach((t) => addOption(sel, t.id, (t.bank || "") + " · " + (t.name || "")));
+        await loadList();
+        await loadReleases();
+        setMsg("已进入中台。", true);
+      } catch (e) {
+        setMsg(e.message, false);
+      }
+    }
+    async function loadList() {
+      const q = encodeURIComponent(document.getElementById("q").value.trim());
+      const status = encodeURIComponent(document.getElementById("status").value);
+      const topicId = encodeURIComponent(document.getElementById("topicId").value);
+      const data = await api(
+        `/api/admin/questions?q=${q}&status=${status}&topicId=${topicId}&page=${page}&size=30`,
+        { headers: headers() }
+      );
+      document.getElementById("pager").textContent = `共 ${data.total} 道 · 第 ${data.page} 页`;
+      const tbody = document.getElementById("rows");
+      clearNode(tbody);
+      (data.items || []).forEach((item) => {
+        const tr = document.createElement("tr");
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => openQuestion(item.id));
+        const idCell = document.createElement("td");
+        idCell.textContent = item.id || "";
+        const titleCell = document.createElement("td");
+        titleCell.textContent = item.title || "";
+        const preview = document.createElement("div");
+        preview.className = "muted";
+        preview.textContent = String(item.question || "").slice(0, 80);
+        titleCell.appendChild(preview);
+        const st = document.createElement("td");
+        const chip = document.createElement("span");
+        chip.className = "chip";
+        chip.textContent = item.status || "";
+        st.appendChild(chip);
+        tr.appendChild(idCell);
+        tr.appendChild(titleCell);
+        tr.appendChild(st);
+        tbody.appendChild(tr);
+      });
+    }
+    async function openQuestion(id) {
+      current = await api("/api/admin/questions/" + encodeURIComponent(id), { headers: headers() });
+      document.getElementById("editTitle").textContent = current.id + " · " + current.title;
+      const labels = current.labels || {};
+      const editor = document.getElementById("editor");
+      clearNode(editor);
+      const status = document.createElement("select");
+      status.id = "ed-status";
+      ["published", "draft", "retired"].forEach((s) => {
+        const opt = document.createElement("option");
+        opt.textContent = s;
+        opt.selected = current.status === s;
+        status.appendChild(opt);
+      });
+      const sl = document.createElement("label");
+      sl.textContent = "状态";
+      editor.appendChild(sl);
+      editor.appendChild(status);
+      field(editor, "input", "ed-title", "标题", current.title);
+      field(editor, "textarea", "ed-question", "题干", current.question);
+      field(editor, "textarea", "ed-gist", "要点 gist", current.gist);
+      field(editor, "textarea", "ed-bonus", "加分", current.bonus);
+      field(editor, "textarea", "ed-red", "答砸信号", current.redFlags);
+      field(editor, "textarea", "ed-full", "完整作答", current.fullAnswer, { minHeight: "140px" });
+      field(editor, "input", "ed-exp", "经验层级", current.experienceLevel);
+      field(editor, "input", "ed-type", "题型", current.questionType);
+      field(editor, "input", "ed-aud", "受众标签（逗号分隔）", (labels.audience || []).join(", "));
+      field(editor, "input", "ed-role", "角色标签", (labels.role || []).join(", "));
+      field(editor, "input", "ed-dom", "领域标签", (labels.domain || []).join(", "));
+      field(editor, "input", "ed-cap", "能力标签", (labels.capability || []).join(", "));
+      const row = document.createElement("div");
+      row.className = "row";
+      row.style.marginTop = "10px";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = "保存";
+      btn.addEventListener("click", () => saveQuestion());
+      row.appendChild(btn);
+      editor.appendChild(row);
+    }
+    function splitLabels(raw) {
+      return raw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    async function saveQuestion() {
+      if (!current) return;
+      try {
+        current = await api("/api/admin/questions/" + encodeURIComponent(current.id), {
+          method: "PATCH",
+          headers: headers(true),
+          body: JSON.stringify({
+            status: document.getElementById("ed-status").value,
+            title: document.getElementById("ed-title").value,
+            question: document.getElementById("ed-question").value,
+            gist: document.getElementById("ed-gist").value,
+            bonus: document.getElementById("ed-bonus").value,
+            redFlags: document.getElementById("ed-red").value,
+            fullAnswer: document.getElementById("ed-full").value,
+            experienceLevel: document.getElementById("ed-exp").value,
+            questionType: document.getElementById("ed-type").value,
+            labels: {
+              audience: splitLabels(document.getElementById("ed-aud").value),
+              role: splitLabels(document.getElementById("ed-role").value),
+              domain: splitLabels(document.getElementById("ed-dom").value),
+              capability: splitLabels(document.getElementById("ed-cap").value),
+            },
+          }),
+        });
+        setMsg("已保存 " + current.id, true);
+        await loadList();
+      } catch (e) {
+        setMsg(e.message, false);
+      }
+    }
+    async function loadReleases() {
+      const data = await api("/api/admin/releases", { headers: headers() });
+      const box = document.getElementById("releases");
+      clearNode(box);
+      (data.items || []).forEach((r, i) => {
+        if (i) box.appendChild(document.createElement("br"));
+        const span = document.createElement("span");
+        span.textContent = (r.isCurrent ? "当前 " : "") + (r.version || "") + " · " + (r.summary || "");
+        box.appendChild(span);
+      });
+    }
+    async function publish() {
+      try {
+        await api("/api/admin/releases", {
+          method: "POST",
+          headers: headers(true),
+          body: JSON.stringify({
+            version: document.getElementById("version").value,
+            summary: document.getElementById("summary").value,
+          }),
+        });
+        setMsg("已发布版本。", true);
+        await loadReleases();
+        await connect();
+      } catch (e) {
+        setMsg(e.message, false);
+      }
+    }
+    document.getElementById("token").value = sessionStorage.getItem(TOKEN_KEY) || "";
+    if (token()) connect().catch(() => {});
+  </script>
+</body>
+</html>
