@@ -8,7 +8,7 @@ from server.config import HOST, PORT
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="阿里 AI 面试官 Python 服务")
+    parser = argparse.ArgumentParser(description="Agent 面试舱 Python 服务")
     parser.add_argument("--reload", action="store_true")
     parser.add_argument("--host", default=HOST)
     parser.add_argument("--port", type=int, default=PORT)

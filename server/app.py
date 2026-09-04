@@ -29,7 +29,7 @@ async def lifespan(_app: FastAPI):
     close_pool()
 
 
-app = FastAPI(title="阿里 AI 面试官", lifespan=lifespan)
+app = FastAPI(title="Agent 面试舱", lifespan=lifespan)
 app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
