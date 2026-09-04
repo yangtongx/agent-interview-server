@@ -2,8 +2,8 @@
 
 > 审计对象：
 >
-> - `D:\work\ali-agent-interview-harmony`
-> - `D:\work\ali-agent-interview-server`
+> - `D:\work\agent-interview-harmony`
+> - `D:\work\agent-interview-server`
 >
 > 审计日期：2026-09-04  
 > 审计方式：静态只读审计、跨端接口对照、关键安全链路复核  
@@ -254,7 +254,7 @@ flowchart LR
 
 **结论：配置已确认；实际生产是否使用 HTTP 需运行环境验证。**
 
-[`network_config.json`](../../ali-agent-interview-harmony/entry/src/main/resources/base/profile/network_config.json) 全局设置 `cleartextTrafficPermitted: true`。设置页还允许修改 API 站点，所有认证、模型和简历请求都会自动使用该站点。
+[`network_config.json`](../../agent-interview-harmony/entry/src/main/resources/base/profile/network_config.json) 全局设置 `cleartextTrafficPermitted: true`。设置页还允许修改 API 站点，所有认证、模型和简历请求都会自动使用该站点。
 
 利用前提：
 
@@ -318,9 +318,9 @@ flowchart LR
 
 证据：
 
-- [`AuthStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/store/AuthStore.ets) 第 54–63 行：Token 写入普通 Preferences。
-- [`LlmStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/store/LlmStore.ets) 第 41–49 行：模型 Key 与地址写入普通 Preferences。
-- [`PreferencesStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/common/PreferencesStore.ets) 第 5–27 行：无 HUKS 或加密层。
+- [`AuthStore.ets`](../../agent-interview-harmony/entry/src/main/ets/store/AuthStore.ets) 第 54–63 行：Token 写入普通 Preferences。
+- [`LlmStore.ets`](../../agent-interview-harmony/entry/src/main/ets/store/LlmStore.ets) 第 41–49 行：模型 Key 与地址写入普通 Preferences。
+- [`PreferencesStore.ets`](../../agent-interview-harmony/entry/src/main/ets/common/PreferencesStore.ets) 第 5–27 行：无 HUKS 或加密层。
 
 利用前提：
 
@@ -350,8 +350,8 @@ flowchart LR
 审计时 Git 根目录为 `D:/work`，两个目标目录均显示为未跟踪：
 
 ```text
-?? ali-agent-interview-harmony/
-?? ali-agent-interview-server/
+?? agent-interview-harmony/
+?? agent-interview-server/
 ```
 
 影响：
@@ -412,9 +412,9 @@ flowchart LR
 
 证据：
 
-- [`BankStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/store/BankStore.ets) 第 24–33 行。
-- [`AuthStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/store/AuthStore.ets) 第 17–27 行。
-- [`Index.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/pages/Index.ets) 第 21–36 行。
+- [`BankStore.ets`](../../agent-interview-harmony/entry/src/main/ets/store/BankStore.ets) 第 24–33 行。
+- [`AuthStore.ets`](../../agent-interview-harmony/entry/src/main/ets/store/AuthStore.ets) 第 17–27 行。
+- [`Index.ets`](../../agent-interview-harmony/entry/src/main/ets/pages/Index.ets) 第 21–36 行。
 
 影响：
 
@@ -432,10 +432,10 @@ flowchart LR
 
 主要问题：
 
-- [`Index.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/pages/Index.ets) 第 97–100 行切换 Tab 只停止 TTS，没有统一停止 ASR。
-- [`EntryAbility.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/entryability/EntryAbility.ets) 第 43–45 行销毁时只清理 Context。
-- [`AsrService.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/speech/AsrService.ets) 第 110–117 行持续累积 PCM 数据，没有大小或时长上限。
-- [`ResumeStore.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/store/ResumeStore.ets) 第 81–98 行轮询最长 90 秒，无取消令牌。
+- [`Index.ets`](../../agent-interview-harmony/entry/src/main/ets/pages/Index.ets) 第 97–100 行切换 Tab 只停止 TTS，没有统一停止 ASR。
+- [`EntryAbility.ets`](../../agent-interview-harmony/entry/src/main/ets/entryability/EntryAbility.ets) 第 43–45 行销毁时只清理 Context。
+- [`AsrService.ets`](../../agent-interview-harmony/entry/src/main/ets/speech/AsrService.ets) 第 110–117 行持续累积 PCM 数据，没有大小或时长上限。
+- [`ResumeStore.ets`](../../agent-interview-harmony/entry/src/main/ets/store/ResumeStore.ets) 第 81–98 行轮询最长 90 秒，无取消令牌。
 
 影响：
 
@@ -494,7 +494,7 @@ flowchart LR
 
 ### 6.2 `patchJson` 实际发送 PUT
 
-[`ApiClient.ets`](../../ali-agent-interview-harmony/entry/src/main/ets/network/ApiClient.ets) 第 71–73 行：
+[`ApiClient.ets`](../../agent-interview-harmony/entry/src/main/ets/network/ApiClient.ets) 第 71–73 行：
 
 ```ts
 static async patchJson(path: string, body: Object): Promise<string> {

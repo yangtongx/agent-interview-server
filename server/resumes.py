@@ -455,7 +455,7 @@ def _named_project_count(conn, resume_id: Any) -> int:
     return int(named.get("n") or 0) if named else 0
 
 
-def run_parse_job(resume_id: Any) -> None:
+async def run_parse_job(resume_id: Any) -> None:
     resume_id = parse_resume_id(resume_id)
     if resume_id is None:
         return
@@ -487,7 +487,7 @@ def run_parse_job(resume_id: Any) -> None:
             raise FileNotFoundError("missing storage")
         data = read_stored(Path(storage_key))
         kind = file_kind(file_name, mime)
-        result = run_parse_pipeline(kind, data, mime)
+        result = await run_parse_pipeline(kind, data, mime)
         with get_conn() as conn:
             profile = conn.execute(
                 "SELECT confirmed_at FROM resume_profiles WHERE resume_id = %s",

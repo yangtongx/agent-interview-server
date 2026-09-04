@@ -4,7 +4,7 @@ import io
 from typing import Any
 
 from server.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
-from server.http_client import http
+from server.http_client import async_http
 from server.judge import completions_url, extract_json_object, looks_like_html
 
 STRUCTURE_SYSTEM = (
@@ -56,14 +56,14 @@ def extract_docx_text(data: bytes) -> str:
         return ""
 
 
-def _vision_ocr(data: bytes, mime: str) -> str:
+async def _vision_ocr(data: bytes, mime: str) -> str:
     if not LLM_API_KEY:
         return ""
     import base64
 
     try:
         url = f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
-        response = http().post(
+        response = await async_http().post(
             completions_url(LLM_BASE_URL),
             headers={"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"},
             json={
@@ -79,7 +79,6 @@ def _vision_ocr(data: bytes, mime: str) -> str:
                     }
                 ],
             },
-            timeout=60.0,
         )
         if response.status_code >= 400 or looks_like_html(response.text):
             return ""
@@ -94,18 +93,18 @@ def _vision_ocr(data: bytes, mime: str) -> str:
         return ""
 
 
-def extract_image_text(data: bytes, mime: str) -> str:
-    return (_vision_ocr(data, mime) or "").strip()
+async def extract_image_text(data: bytes, mime: str) -> str:
+    return ((await _vision_ocr(data, mime)) or "").strip()
 
 
-def extract_text(kind: str, data: bytes, mime: str) -> str:
+async def extract_text(kind: str, data: bytes, mime: str) -> str:
     if kind == "pdf":
         return extract_pdf_text(data)
     if kind == "docx":
         return extract_docx_text(data)
     if kind in ("jpeg", "png", "webp"):
         mapped = {"jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[kind]
-        return extract_image_text(data, mime or mapped)
+        return await extract_image_text(data, mime or mapped)
     return ""
 
 
@@ -203,11 +202,11 @@ def empty_archive() -> dict[str, Any]:
     return normalize_structured({})
 
 
-def structure_from_text(raw_text: str) -> dict[str, Any]:
+async def structure_from_text(raw_text: str) -> dict[str, Any]:
     if not LLM_API_KEY:
         return empty_archive()
     try:
-        response = http().post(
+        response = await async_http().post(
             completions_url(LLM_BASE_URL),
             headers={"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"},
             json={
@@ -218,7 +217,6 @@ def structure_from_text(raw_text: str) -> dict[str, Any]:
                     {"role": "user", "content": (raw_text or "")[:12000]},
                 ],
             },
-            timeout=60.0,
         )
         if response.status_code >= 400 or looks_like_html(response.text):
             return empty_archive()
@@ -235,8 +233,8 @@ def structure_from_text(raw_text: str) -> dict[str, Any]:
         return empty_archive()
 
 
-def run_parse_pipeline(kind: str, data: bytes, mime: str) -> dict[str, Any]:
-    raw_text = extract_text(kind, data, mime)
+async def run_parse_pipeline(kind: str, data: bytes, mime: str) -> dict[str, Any]:
+    raw_text = await extract_text(kind, data, mime)
     if not raw_text.strip():
         return {
             "raw_text": raw_text,
@@ -244,7 +242,7 @@ def run_parse_pipeline(kind: str, data: bytes, mime: str) -> dict[str, Any]:
             "status": "failed",
             "error": "没有从文件里抽出文字，请手填档案或换一份文件。",
         }
-    archive = structure_from_text(raw_text)
+    archive = await structure_from_text(raw_text)
     status = classify_parse(raw_text, archive["projects"])
     error = "档案不完整，请补全项目名和职责后再确认。" if status == "needs_review" else None
     return {"raw_text": raw_text, "archive": archive, "status": status, "error": error}

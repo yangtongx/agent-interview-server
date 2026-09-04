@@ -22,8 +22,8 @@ fi
 
 mkdir -p release
 STAMP="$(date +%Y%m%d%H%M)"
-TAR="release/ali-agent-interview-server-${STAMP}.tar.gz"
+TAR="release/agent-interview-server-${STAMP}.tar.gz"
 tar -C dist -czf "$TAR" .
-ln -sfn "$(basename "$TAR")" release/ali-agent-interview-server-latest.tar.gz
+ln -sfn "$(basename "$TAR")" release/agent-interview-server-latest.tar.gz
 echo "已打包 $TAR"
 echo "上传后： tar -xzf ... && python3 -m pip install -r server/requirements.txt && python3 -m server"

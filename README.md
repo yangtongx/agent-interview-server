@@ -4,9 +4,9 @@
 
 配套目录（都在 `D:\work` 下，互不嵌套）：
 
-- 网页：`ali-agent-interview`
-- 本仓库：`ali-agent-interview-server`
-- 鸿蒙：`ali-agent-interview-harmony`
+- 网页：`agent-interview`
+- 本仓库：`agent-interview-server`
+- 鸿蒙：`agent-interview-harmony`
 
 ## 接口
 

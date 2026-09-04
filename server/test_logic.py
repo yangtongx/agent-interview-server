@@ -178,12 +178,13 @@ class LogicTest(unittest.TestCase):
         self.assertIn("爱连", extract_docx_text(out.getvalue()))
 
     def test_extract_image_uses_vision(self) -> None:
-        from unittest.mock import patch
+        import asyncio
+        from unittest.mock import AsyncMock, patch
 
         from server.resume_parse import extract_image_text
 
-        with patch("server.resume_parse._vision_ocr", return_value="  项目：收银台  "):
-            self.assertEqual(extract_image_text(b"\xff\xd8", "image/jpeg"), "项目：收银台")
+        with patch("server.resume_parse._vision_ocr", new_callable=AsyncMock, return_value="  项目：收银台  "):
+            self.assertEqual(asyncio.run(extract_image_text(b"\xff\xd8", "image/jpeg")), "项目：收银台")
 
     def test_normalize_structured_archive(self) -> None:
         from server.resume_parse import normalize_structured
@@ -217,12 +218,13 @@ class LogicTest(unittest.TestCase):
         self.assertEqual(out["projects"][0]["_job_index"], 0)
 
     def test_structure_from_text_missing_key_empty(self) -> None:
+        import asyncio
         from unittest.mock import patch
 
         from server.resume_parse import structure_from_text
 
         with patch("server.resume_parse.LLM_API_KEY", ""):
-            out = structure_from_text("有字")
+            out = asyncio.run(structure_from_text("有字"))
             self.assertEqual(out["projects"], [])
             self.assertEqual(out["jobs"], [])
 
@@ -315,8 +317,9 @@ class LogicTest(unittest.TestCase):
         self.assertIn("负责哪一段", text)
 
     def test_generate_resume_question_fallback_and_retry(self) -> None:
+        import asyncio
         import json
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from server.resume_mock import fallback_question, generate_resume_question
 
@@ -329,7 +332,7 @@ class LogicTest(unittest.TestCase):
             "outcomes": "超时下降 30%",
         }
         with patch("server.resume_mock.LLM_API_KEY", ""):
-            missing = generate_resume_question(project, "transition", [], "")
+            missing = asyncio.run(generate_resume_question(project, "transition", [], ""))
         self.assertEqual(missing["question"], fallback_question(project))
         self.assertEqual(missing["gist"], "讲清本人职责和验收")
         self.assertEqual(missing["angle"], "ownership")
@@ -343,18 +346,18 @@ class LogicTest(unittest.TestCase):
         mock_resp.status_code = 200
         mock_resp.text = '{"choices":[{"message":{"content":' + json.dumps(invented) + "}}]}"
         mock_resp.json.return_value = {"choices": [{"message": {"content": invented}}]}
-        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.http") as http_fn:
-            http_fn.return_value.post.return_value = mock_resp
-            invented_out = generate_resume_question(project, "transition", [], "我做鉴权")
+        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.async_http") as http_fn:
+            http_fn.return_value.post = AsyncMock(return_value=mock_resp)
+            invented_out = asyncio.run(generate_resume_question(project, "transition", [], "我做鉴权"))
         self.assertEqual(invented_out["question"], fallback_question(project))
         self.assertEqual(http_fn.return_value.post.call_count, 2)
 
         fail_resp = MagicMock()
         fail_resp.status_code = 502
         fail_resp.text = "<html>oops</html>"
-        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.http") as http_fn:
-            http_fn.return_value.post.return_value = fail_resp
-            http_out = generate_resume_question(project, "experienced", ["已问"], "答")
+        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.async_http") as http_fn:
+            http_fn.return_value.post = AsyncMock(return_value=fail_resp)
+            http_out = asyncio.run(generate_resume_question(project, "experienced", ["已问"], "答"))
         self.assertEqual(http_out["question"], fallback_question(project))
         self.assertEqual(http_fn.return_value.post.call_count, 1)
 
@@ -366,9 +369,9 @@ class LogicTest(unittest.TestCase):
         good_resp.status_code = 200
         good_resp.text = '{"ok":true}'
         good_resp.json.return_value = {"choices": [{"message": {"content": good}}]}
-        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.http") as http_fn:
-            http_fn.return_value.post.return_value = good_resp
-            ok = generate_resume_question(project, "transition", [], "我做鉴权")
+        with patch("server.resume_mock.LLM_API_KEY", "k"), patch("server.resume_mock.async_http") as http_fn:
+            http_fn.return_value.post = AsyncMock(return_value=good_resp)
+            ok = asyncio.run(generate_resume_question(project, "transition", [], "我做鉴权"))
         self.assertEqual(ok["question"], "收银台的鉴权你怎么验收？")
         self.assertEqual(ok["angle"], "ownership")
         self.assertEqual(http_fn.return_value.post.call_count, 1)
@@ -402,6 +405,31 @@ class LogicTest(unittest.TestCase):
         topics = [row["topicId"] for row in picked]
         self.assertEqual(len(set(topics)), 3)
         self.assertEqual(plan_bank_parent_ids("session-seed", parents, 3), picked)
+
+    def test_bank_etag_stable_and_matches_header(self) -> None:
+        from server.bank import bank_etag, etag_matches
+
+        first = {"release": {"version": "1.0.0"}, "questions": [{"id": "a"}]}
+        second = {"release": {"version": "1.0.1"}, "questions": [{"id": "a"}]}
+        tag = bank_etag(first)
+        self.assertTrue(tag.startswith('"') and tag.endswith('"'))
+        self.assertEqual(bank_etag(first), tag)
+        self.assertNotEqual(bank_etag(second), tag)
+        self.assertTrue(etag_matches(tag, tag))
+        self.assertTrue(etag_matches(f"W/{tag}, \"other\"", tag))
+        self.assertFalse(etag_matches('"nope"', tag))
+
+    def test_upstream_helpers_are_async(self) -> None:
+        import inspect
+
+        from server.resume_parse import run_parse_pipeline, structure_from_text
+        from server.transcribe import transcribe_audio
+        from server.tts import synthesize_speech
+
+        self.assertTrue(inspect.iscoroutinefunction(synthesize_speech))
+        self.assertTrue(inspect.iscoroutinefunction(structure_from_text))
+        self.assertTrue(inspect.iscoroutinefunction(run_parse_pipeline))
+        self.assertTrue(inspect.iscoroutinefunction(transcribe_audio))
 
 
 if __name__ == "__main__":

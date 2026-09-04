@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/ali-agent-interview-server.iml" filepath="$PROJECT_DIR$/.idea/ali-agent-interview-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/agent-interview-server.iml" filepath="$PROJECT_DIR$/.idea/agent-interview-server.iml" />
     </modules>
   </component>
 </project>

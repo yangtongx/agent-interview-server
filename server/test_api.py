@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import unittest
 import uuid
-from unittest.mock import patch
+import asyncio
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -158,7 +159,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(asr.status_code, 401, asr.text)
 
         headers = self._auth()
-        with patch("server.app.async_http") as mocked_http:
+        with patch("server.routers.ai.async_http") as mocked_http:
             judged = self.client.post("/api/judge", headers=headers, json=payload)
         self.assertEqual(judged.status_code, 400, judged.text)
         self.assertIn("error", judged.json())
@@ -186,6 +187,38 @@ class ApiTest(unittest.TestCase):
         self.assertTrue(res.headers.get("x-request-id"))
         custom = self.client.get("/api/health", headers={"X-Request-Id": "trace-unit"})
         self.assertEqual(custom.headers.get("x-request-id"), "trace-unit")
+
+    def test_bank_etag_and_not_modified(self) -> None:
+        first = self.client.get("/api/bank")
+        self.assertEqual(first.status_code, 200, first.text)
+        etag = first.headers.get("etag")
+        self.assertTrue(etag)
+        self.assertIn("must-revalidate", (first.headers.get("cache-control") or "").lower())
+        self.assertIn("release", first.json())
+        again = self.client.get("/api/bank", headers={"If-None-Match": etag})
+        self.assertEqual(again.status_code, 304)
+        self.assertEqual(again.headers.get("etag"), etag)
+        self.assertFalse(again.content)
+        missed = self.client.get("/api/bank", headers={"If-None-Match": '"stale-etag"'})
+        self.assertEqual(missed.status_code, 200, missed.text)
+        self.assertEqual(missed.headers.get("etag"), etag)
+
+    def test_app_includes_domain_routers(self) -> None:
+        from server.routers import admin, ai, auth, bank, resumes
+
+        self.assertTrue(any(getattr(route, "path", "") == "/api/bank" for route in bank.router.routes))
+        self.assertTrue(any(getattr(route, "path", "") == "/api/judge" for route in ai.router.routes))
+        self.assertTrue(any(getattr(route, "path", "") == "/api/auth/device" for route in auth.router.routes))
+        self.assertTrue(any(getattr(route, "path", "") == "/api/resumes" for route in resumes.router.routes))
+        self.assertTrue(any(getattr(route, "path", "") == "/api/admin/stats" for route in admin.router.routes))
+        spec = self.client.get("/openapi.json")
+        self.assertEqual(spec.status_code, 200, spec.text)
+        paths = spec.json()["paths"]
+        self.assertIn("/api/bank", paths)
+        self.assertIn("/api/judge", paths)
+        self.assertIn("/api/auth/device", paths)
+        self.assertIn("/api/resumes", paths)
+        self.assertIn("/api/admin/stats", paths)
 
     @patch.dict(os.environ, {}, clear=False)
     def test_admin_with_token(self) -> None:
@@ -241,7 +274,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(bad.status_code, 400)
         self.assertIn("docx", bad.json()["error"])
 
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=headers,
@@ -279,7 +312,7 @@ class ApiTest(unittest.TestCase):
         from server.resumes import run_parse_job
 
         headers = self._auth()
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=headers,
@@ -303,7 +336,7 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(ok.status_code, 200, ok.text)
         before = self.client.get(f"/api/resumes/{resume_id}", headers=headers).json()
         with patch("server.resumes.run_parse_pipeline", side_effect=RuntimeError("boom")):
-            run_parse_job(resume_id)
+            asyncio.run(run_parse_job(resume_id))
         after = self.client.get(f"/api/resumes/{resume_id}", headers=headers).json()
         self.assertEqual(after["parseStatus"], before["parseStatus"])
         self.assertTrue(after["confirmedAt"])
@@ -313,7 +346,7 @@ class ApiTest(unittest.TestCase):
         from server.resumes import run_parse_job
 
         headers = self._auth()
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=headers,
@@ -338,8 +371,8 @@ class ApiTest(unittest.TestCase):
             "status": "parsed",
             "error": None,
         }
-        with patch("server.resumes.run_parse_pipeline", return_value=pipeline):
-            run_parse_job(resume_id)
+        with patch("server.resumes.run_parse_pipeline", new_callable=AsyncMock, return_value=pipeline):
+            asyncio.run(run_parse_job(resume_id))
         got = self.client.get(f"/api/resumes/{resume_id}", headers=headers)
         self.assertEqual(got.status_code, 200, got.text)
         names = [item.get("name") for item in got.json().get("projects") or []]
@@ -355,7 +388,7 @@ class ApiTest(unittest.TestCase):
             json={"deviceId": device_id, "platform": "harmony", "audience": "transition"},
         )
         headers = {"Authorization": f"Bearer {login.json()['token']}"}
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=headers,
@@ -377,12 +410,16 @@ class ApiTest(unittest.TestCase):
         self.client.post(f"/api/resumes/{rid}/confirm", headers=headers)
         unconf = self.client.post("/api/mock/sessions", json={"kind": "resume", "resumeId": rid})
         self.assertEqual(unconf.status_code, 401)
-        with patch("server.resume_mock.generate_resume_question", return_value={
-            "question": "改名项目里你负责哪一段？",
-            "gist": "职责",
-            "points": [{"heading": "职责", "body": "讲清自己做的部分"}],
-            "angle": "ownership",
-        }):
+        with patch(
+            "server.resume_mock.generate_resume_question",
+            new_callable=AsyncMock,
+            return_value={
+                "question": "改名项目里你负责哪一段？",
+                "gist": "职责",
+                "points": [{"heading": "职责", "body": "讲清自己做的部分"}],
+                "angle": "ownership",
+            },
+        ):
             sess = self.client.post(
                 "/api/mock/sessions",
                 headers=headers,
@@ -404,7 +441,7 @@ class ApiTest(unittest.TestCase):
     def test_resume_hidden_from_other_user(self) -> None:
         owner = self._auth()
         other = self._auth()
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=owner,
@@ -422,7 +459,7 @@ class ApiTest(unittest.TestCase):
 
     def test_resume_mock_two_projects_then_bank(self) -> None:
         headers = self._auth()
-        with patch("server.app.run_parse_job"):
+        with patch("server.routers.resumes.run_parse_job"):
             up = self.client.post(
                 "/api/resumes",
                 headers=headers,
@@ -448,7 +485,7 @@ class ApiTest(unittest.TestCase):
             "points": [{"heading": "职责", "body": "讲清自己做的部分"}],
             "angle": "ownership",
         }
-        with patch("server.resume_mock.generate_resume_question", return_value=generated):
+        with patch("server.resume_mock.generate_resume_question", new_callable=AsyncMock, return_value=generated):
             sess = self.client.post(
                 "/api/mock/sessions",
                 headers=headers,

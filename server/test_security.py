@@ -188,6 +188,21 @@ class HttpClientTest(unittest.TestCase):
         finally:
             http_client.close_http()
 
+    def test_async_client_does_not_follow_redirects(self) -> None:
+        import asyncio
+
+        from server import http_client
+
+        async def check() -> None:
+            await http_client.close_async_http()
+            client = http_client.async_http()
+            try:
+                self.assertFalse(client.follow_redirects)
+            finally:
+                await http_client.close_async_http()
+
+        asyncio.run(check())
+
 
 if __name__ == "__main__":
     unittest.main()

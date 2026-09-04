@@ -3,17 +3,17 @@ from __future__ import annotations
 import base64
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from server.config import DASHSCOPE_NATIVE_TTS, MAX_TTS_CHARS, QWEN_TTS_FLASH, QWEN_TTS_INSTRUCT
 from server.egress import UnsafeUrl, validate_tts_media_url
-from server.http_client import http
+from server.http_client import async_http
 from server.judge import looks_like_html, parse_json_text
 
 SpeakRole = Literal["interviewer", "coach"]
 AudioResult = dict[str, Any]
-Strategy = Callable[[str, str, str, SpeakRole], AudioResult]
+Strategy = Callable[[str, str, str, SpeakRole], Awaitable[AudioResult]]
 
 TTS_INSTRUCTIONS: dict[SpeakRole, str] = {
     "interviewer": (
@@ -141,7 +141,7 @@ def _upstream_error(status: int, raw_text: str) -> str:
     return raw_text[:280] or f"HTTP {status}"
 
 
-def _download_audio(url: str) -> dict[str, Any]:
+async def _download_audio(url: str) -> dict[str, Any]:
     last = "下载合成音频失败"
     for candidate in audio_url_candidates(url):
         try:
@@ -149,7 +149,7 @@ def _download_audio(url: str) -> dict[str, Any]:
         except UnsafeUrl:
             last = "音频地址不被允许"
             continue
-        response = http().get(safe)
+        response = await async_http().get(safe)
         if response.status_code >= 400:
             last = f"下载合成音频失败 HTTP {response.status_code}"
             continue
@@ -177,7 +177,7 @@ def _pick_audio_node(payload: Any) -> dict[str, Any] | None:
     return None
 
 
-def _bytes_from_qwen_payload(payload: Any) -> dict[str, Any]:
+async def _bytes_from_qwen_payload(payload: Any) -> dict[str, Any]:
     biz = qwen_business_error(payload)
     if biz:
         raise RuntimeError(biz)
@@ -190,16 +190,16 @@ def _bytes_from_qwen_payload(payload: Any) -> dict[str, Any]:
             raise RuntimeError("通义语音返回的音频是空的。")
         return {"bytes": raw, "mime": sniff_audio_mime(raw)}
     if isinstance(url, str) and url.strip():
-        return _download_audio(url)
+        return await _download_audio(url)
     raise RuntimeError("通义语音没有返回音频。请确认百炼已开通 qwen3-tts-flash。")
 
 
-def _synthesize_qwen_native(api_key: str, base_url: str, text: str, role: SpeakRole, model: str) -> AudioResult:
+async def _synthesize_qwen_native(api_key: str, base_url: str, text: str, role: SpeakRole, model: str) -> AudioResult:
     if not is_dashscope_base(base_url):
         raise RuntimeError("当前接口不是百炼，无法走通义语音。")
     errors: list[str] = []
     for body in build_qwen_native_bodies(text, role, model):
-        response = http().post(
+        response = await async_http().post(
             DASHSCOPE_NATIVE_TTS,
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=body,
@@ -210,14 +210,14 @@ def _synthesize_qwen_native(api_key: str, base_url: str, text: str, role: SpeakR
             continue
         try:
             payload = parse_json_text(raw_text, "通义语音")
-            audio = _bytes_from_qwen_payload(payload)
+            audio = await _bytes_from_qwen_payload(payload)
             return {**audio, "engine": model}
         except Exception as exc:
             errors.append(str(exc) or "通义语音失败")
     raise RuntimeError(errors[-1] if errors else "通义语音失败")
 
 
-def _synthesize_compatible(api_key: str, base_url: str, text: str, role: SpeakRole, model: str) -> AudioResult:
+async def _synthesize_compatible(api_key: str, base_url: str, text: str, role: SpeakRole, model: str) -> AudioResult:
     body: dict[str, Any] = {
         "model": model,
         "input": text,
@@ -228,7 +228,7 @@ def _synthesize_compatible(api_key: str, base_url: str, text: str, role: SpeakRo
     }
     if "instruct" in model:
         body["instructions"] = TTS_INSTRUCTIONS[role]
-    response = http().post(
+    response = await async_http().post(
         speech_url(base_url),
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json=body,
@@ -242,8 +242,8 @@ def _synthesize_compatible(api_key: str, base_url: str, text: str, role: SpeakRo
     return {"bytes": data, "mime": sniff_audio_mime(data), "engine": model}
 
 
-def _synthesize_openai(api_key: str, base_url: str, text: str, role: SpeakRole) -> AudioResult:
-    response = http().post(
+async def _synthesize_openai(api_key: str, base_url: str, text: str, role: SpeakRole) -> AudioResult:
+    response = await async_http().post(
         speech_url(base_url),
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
@@ -294,7 +294,7 @@ def _qwen_strategies() -> list[tuple[str, Strategy]]:
     ]
 
 
-def synthesize_speech(api_key: str, base_url: str, provider: str, text: str, role: SpeakRole) -> AudioResult:
+async def synthesize_speech(api_key: str, base_url: str, provider: str, text: str, role: SpeakRole) -> AudioResult:
     global _cached
     text = text.strip()
     if not text:
@@ -306,18 +306,18 @@ def synthesize_speech(api_key: str, base_url: str, provider: str, text: str, rol
 
     use_qwen = provider == "qwen" or is_dashscope_base(base_url)
     if not use_qwen:
-        return _synthesize_openai(api_key, base_url, text, role)
+        return await _synthesize_openai(api_key, base_url, text, role)
 
     if _cached is not None:
         try:
-            return _cached(api_key, base_url, text, role)
+            return await _cached(api_key, base_url, text, role)
         except Exception:
             _cached = None
 
     errors: list[str] = []
     for _name, run in _qwen_strategies():
         try:
-            result = run(api_key, base_url, text, role)
+            result = await run(api_key, base_url, text, role)
             _cached = run
             return result
         except Exception as exc:

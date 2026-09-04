@@ -6,7 +6,7 @@ import re
 from typing import Any
 
 from server.config import QWEN_ASR_MODEL
-from server.http_client import http
+from server.http_client import async_http
 from server.judge import completions_url, looks_like_html, parse_json_text
 
 
@@ -79,8 +79,8 @@ def _data_uri(data: bytes, mime: str) -> str:
     return f"data:{mime};base64,{base64.b64encode(data).decode('ascii')}"
 
 
-def _transcribe_qwen(api_key: str, base_url: str, data: bytes, mime: str) -> str:
-    response = http().post(
+async def _transcribe_qwen(api_key: str, base_url: str, data: bytes, mime: str) -> str:
+    response = await async_http().post(
         completions_url(base_url),
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
@@ -122,8 +122,8 @@ def _transcriptions_url(base_url: str) -> str:
     return f"{root}/audio/transcriptions"
 
 
-def _transcribe_whisper(api_key: str, base_url: str, data: bytes, mime: str, filename: str) -> str:
-    response = http().post(
+async def _transcribe_whisper(api_key: str, base_url: str, data: bytes, mime: str, filename: str) -> str:
+    response = await async_http().post(
         _transcriptions_url(base_url),
         headers={"Authorization": f"Bearer {api_key}"},
         files={"file": (filename, data, mime)},
@@ -139,7 +139,7 @@ def _transcribe_whisper(api_key: str, base_url: str, data: bytes, mime: str, fil
     return text
 
 
-def transcribe_audio(
+async def transcribe_audio(
     api_key: str,
     base_url: str,
     provider: str,
@@ -151,13 +151,13 @@ def transcribe_audio(
     if engine == "unsupported":
         raise RuntimeError("DeepSeek 没有语音识别。请改用通义，或用 Chrome 的浏览器听写（不需要 Key）。")
     if engine == "qwen":
-        return {"text": _transcribe_qwen(api_key, base_url, data, mime), "engine": QWEN_ASR_MODEL}
+        return {"text": await _transcribe_qwen(api_key, base_url, data, mime), "engine": QWEN_ASR_MODEL}
     try:
         return {
-            "text": _transcribe_whisper(api_key, base_url, data, mime, filename),
+            "text": await _transcribe_whisper(api_key, base_url, data, mime, filename),
             "engine": "whisper-1",
         }
     except Exception:
         if re.search(r"dashscope", base_url, re.I):
-            return {"text": _transcribe_qwen(api_key, base_url, data, mime), "engine": QWEN_ASR_MODEL}
+            return {"text": await _transcribe_qwen(api_key, base_url, data, mime), "engine": QWEN_ASR_MODEL}
         raise

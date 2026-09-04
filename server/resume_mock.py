@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from server.bank import flatten_parents
 from server.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 from server.db import get_conn
-from server.http_client import http
+from server.http_client import async_http
 from server.judge import completions_url, extract_json_object, looks_like_html
 from server.resumes import NOT_FOUND, get_resume_for_user, parse_resume_id
 
@@ -173,13 +173,12 @@ def _normalize_generated(raw: Any) -> dict[str, Any] | None:
     }
 
 
-def _complete_question(messages: list[dict[str, str]]) -> dict[str, Any] | None:
+async def _complete_question(messages: list[dict[str, str]]) -> dict[str, Any] | None:
     try:
-        response = http().post(
+        response = await async_http().post(
             completions_url(LLM_BASE_URL),
             headers={"Authorization": f"Bearer {LLM_API_KEY}", "Content-Type": "application/json"},
             json={"model": LLM_MODEL, "temperature": 0.3, "messages": messages},
-            timeout=60.0,
         )
         if response.status_code >= 400 or looks_like_html(response.text):
             return None
@@ -196,7 +195,7 @@ def _complete_question(messages: list[dict[str, str]]) -> dict[str, Any] | None:
         return None
 
 
-def generate_resume_question(
+async def generate_resume_question(
     project: dict[str, Any],
     audience: str,
     asked: list[str] | None,
@@ -206,12 +205,12 @@ def generate_resume_question(
     if not LLM_API_KEY:
         return fallback
     messages = build_interviewer_messages(project, audience, asked, last_answer)
-    parsed = _complete_question(messages)
+    parsed = await _complete_question(messages)
     if parsed is None:
         return fallback
     if not mentions_unknown_entity(parsed["question"], project):
         return parsed
-    parsed = _complete_question(messages)
+    parsed = await _complete_question(messages)
     if parsed is None or mentions_unknown_entity(parsed["question"], project):
         return fallback
     return parsed
@@ -530,7 +529,7 @@ def _insert_resume_turn(
     }
 
 
-def take_turn(user: dict[str, Any], session_id: str, body: dict[str, Any] | None) -> dict[str, Any]:
+async def take_turn(user: dict[str, Any], session_id: str, body: dict[str, Any] | None) -> dict[str, Any]:
     payload = body if isinstance(body, dict) else {}
     sid = _parse_uuid(session_id)
     if sid is None:
@@ -556,7 +555,7 @@ def take_turn(user: dict[str, Any], session_id: str, body: dict[str, Any] | None
                     break
         sliced = project_slice(current)
         current_id = current["id"]
-    generated = generate_resume_question(
+    generated = await generate_resume_question(
         sliced,
         str(user.get("audience") or "unset"),
         plan["asked"],

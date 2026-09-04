@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from collections import defaultdict
 from typing import Any
@@ -7,6 +8,7 @@ from typing import Any
 from server.db import get_conn, init_schema
 
 _cache: dict[str, Any] | None = None
+_etag: str | None = None
 
 
 def _as_list(value: Any) -> list:
@@ -168,8 +170,35 @@ def load_release(conn=None) -> dict[str, Any] | None:
         return read(owned)
 
 
+def bank_etag(payload: dict[str, Any]) -> str:
+    raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return f'"{digest}"'
+
+
+def etag_matches(if_none_match: str | None, etag: str) -> bool:
+    incoming = (if_none_match or "").strip()
+    if not incoming or not etag:
+        return False
+    if incoming == "*":
+        return True
+    want = etag.strip()
+    for part in incoming.split(","):
+        token = part.strip()
+        if token.startswith("W/"):
+            token = token[2:].strip()
+        if token == want:
+            return True
+    return False
+
+
+def cached_etag() -> str:
+    load_bank()
+    return _etag or bank_etag(load_bank())
+
+
 def load_bank(force: bool = False) -> dict[str, Any]:
-    global _cache
+    global _cache, _etag
     if _cache is not None and not force:
         return _cache
     init_schema()
@@ -250,6 +279,7 @@ def load_bank(force: bool = False) -> dict[str, Any]:
         },
     }
     _cache = payload
+    _etag = bank_etag(payload)
     return payload
 
 
@@ -259,5 +289,6 @@ def flatten_parents(tree: list[dict[str, Any]] | None = None) -> list[dict[str, 
 
 
 def clear_cache() -> None:
-    global _cache
+    global _cache, _etag
     _cache = None
+    _etag = None
